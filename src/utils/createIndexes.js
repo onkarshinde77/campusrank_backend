@@ -9,48 +9,48 @@ export const createDatabaseIndexes = async () => {
 
     // User Collection Indexes
     await User.collection.createIndex({ email: 1 }, { unique: true });
-    console.log('✓ User email index created');
+    // console.log('✓ User email index created');
 
     await User.collection.createIndex({ leetcodeId: 1 }, { unique: true, sparse: true });
-    console.log('✓ User leetcodeId index created');
+    // console.log('✓ User leetcodeId index created');
 
     await User.collection.createIndex({ collegeId: 1 });
-    console.log('✓ User collegeId index created');
+    // console.log('✓ User collegeId index created');
 
     await User.collection.createIndex({ department: 1, year: 1 });
-    console.log('✓ User department-year compound index created');
+    // console.log('✓ User department-year compound index created');
 
     await User.collection.createIndex({ 'leetcodeStats.ranking': 1 });
-    console.log('✓ User leetcodeStats ranking index created');
+    // console.log('✓ User leetcodeStats ranking index created');
 
     await User.collection.createIndex({ createdAt: -1 });
-    console.log('✓ User createdAt index created');
+    // console.log('✓ User createdAt index created');
 
     await User.collection.createIndex({ collegeId: 1, 'leetcodeStats.ranking': 1 });
-    console.log('✓ User collegeId-ranking compound index created');
+    // console.log('✓ User collegeId-ranking compound index created');
 
     await User.collection.createIndex({ resetPasswordExpire: 1 }, { expireAfterSeconds: 0 });
-    console.log('✓ User password reset TTL index created');
+    // console.log('✓ User password reset TTL index created');
 
     await User.collection.createIndex({ isBlocked: 1 });
-    console.log('✓ User isBlocked index created');
+    // console.log('✓ User isBlocked index created');
 
     // Admin Collection Indexes
     await Admin.collection.createIndex({ email: 1 }, { unique: true });
-    console.log('✓ Admin email index created');
+    // console.log('✓ Admin email index created');
 
     await Admin.collection.createIndex({ collegeName: 1 }, { unique: true });
-    console.log('✓ Admin collegeName index created');
+    // console.log('✓ Admin collegeName index created');
 
     await Admin.collection.createIndex({ createdBy: 1 });
-    console.log('✓ Admin createdBy index created');
+    // console.log('✓ Admin createdBy index created');
 
     await Admin.collection.createIndex({ isBlocked: 1 });
-    console.log('✓ Admin isBlocked index created');
+    // console.log('✓ Admin isBlocked index created');
 
     // SuperAdmin Collection Indexes
     await SuperAdmin.collection.createIndex({ email: 1 }, { unique: true });
-    console.log('✓ SuperAdmin email index created');
+    // console.log('✓ SuperAdmin email index created');
 
     console.log('✅ All database indexes created successfully!');
   } catch (error) {
