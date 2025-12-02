@@ -39,9 +39,9 @@ mongoose.connection.once('open', async () => {
     console.error('Failed to create indexes:', error);
   }
 });
-
+const allowedOrigins = ['http://localhost:3000', 'https://www.rankincampus.com']; 
 // Middleware
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
