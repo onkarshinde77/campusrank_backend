@@ -8,17 +8,14 @@ dotenv.config();
 
 const seedSuperAdmin = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
 
     // Check if super admin already exists
-    let superAdmin = await SuperAdmin.findOne({ email: 'superadmin@gmail.com' });
+    let superAdmin = await SuperAdmin.findOne({ email: 'rankincampus@gmail.com' });
     
     if (superAdmin) {
       // Reset password and role in case they were created with incorrect hashing
-      superAdmin.password = 'superadmin123';
+      superAdmin.password = 'sarkar77*77';
       superAdmin.role = 'superadmin';
       await superAdmin.save();
       console.log('Super admin updated successfully');
@@ -27,13 +24,13 @@ const seedSuperAdmin = async () => {
 
     // Create super admin with plain password (will be hashed by pre-save hook)
     superAdmin = new SuperAdmin({
-      name: 'Super Admin',
-      email: 'superadmin@gmail.com',
-      password: 'superadmin123',
-      phoneNumber: '7700770077',
+      name: 'Campus Rank',
+      email: 'rankincampus@gmail.com',
+      password: 'sarkar77*77',
+      phoneNumber: '9309313545',
       yearsOfExperience: 1,
-      linkedinUsername: 'superadmin',
-      githubUsername: 'superadmin',
+      linkedinUsername: '/sarkar',
+      githubUsername: 'sarkar',
       profilePicture: '',
       role: 'superadmin'
     });
