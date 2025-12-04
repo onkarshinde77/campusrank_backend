@@ -52,8 +52,13 @@ const adminSchema = new mongoose.Schema({
   },
   linkedinUsername: {
     type: String,
+    trim: true,
     required: [true, 'Please provide a LinkedIn username'],
-    trim: true
+  },
+  githubUsername: {
+    type: String,
+    trim: true,
+    required: [true, 'Please provide a GitHub username'],
   },
   role: {
     type: String,

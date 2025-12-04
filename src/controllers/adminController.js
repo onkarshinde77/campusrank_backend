@@ -379,7 +379,8 @@ export const createAdmin = async (req, res) => {
       collegeName,
       phoneNumber,
       yearsOfExperience,
-      linkedinUsername
+      linkedinUsername,
+      githubUsername
     } = req.body;
 
     // Check if admin with email or college already exists
@@ -410,6 +411,7 @@ export const createAdmin = async (req, res) => {
       phoneNumber,
       yearsOfExperience,
       linkedinUsername,
+      githubUsername,
       role: 'admin',
       createdBy: req.user._id
     });

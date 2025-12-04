@@ -346,7 +346,9 @@ export const login = async (req, res) => {
           collegeName: admin.collegeName,
           phoneNumber: admin.phoneNumber,
           yearsOfExperience: admin.yearsOfExperience,
-          linkedinUsername: admin.linkedinUsername
+          linkedinUsername: admin.linkedinUsername,
+          githubUsername: admin.githubUsername,
+          profilePicture: admin.profilePicture
         }
       });
     }
@@ -371,6 +373,7 @@ export const login = async (req, res) => {
           phoneNumber: superadmin.phoneNumber,
           yearsOfExperience: superadmin.yearsOfExperience,
           linkedinUsername: superadmin.linkedinUsername,
+          githubUsername: superadmin.githubUsername,
           profilePicture: superadmin.profilePicture
         }
       });
