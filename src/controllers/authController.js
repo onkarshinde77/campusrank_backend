@@ -176,7 +176,8 @@ export const register = async (req, res) => {
         collegeId: collegeAdmin._id, // Link to college admin
         leetcodeId: userData.leetcodeId,
         gfgId: userData.gfgId,
-        githubUsername: userData.githubUsername
+        linkedinUsername: userData.linkedinUsername,
+        githubUsername: userData.githubUsername,
       });
 
       // Generate token

@@ -271,7 +271,7 @@ export const getDisplaySettings = async (req, res) => {
         message: 'Admin not found'
       });
     }
-
+    console.log('Stored display settings:', admin);
     const stored = admin.displaySettings || {};
     const merged = {
       leaderboard: {
@@ -632,6 +632,74 @@ export const getAllColleges = async (req, res) => {
   }
 };
 
+ // adjust the model path if needed
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const { 
+      name, 
+      phoneNumber, 
+      linkedinUsername, 
+      githubUsername, 
+      yearsOfExperience 
+    } = req.body;
+
+    console.log('Admin profile update request:', {
+      userId: req.user._id,
+      body: req.body
+    });
+
+    // Find admin
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      console.log('Admin not found with ID:', req.user._id);
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    console.log('Admin found:', admin.email);
+
+    // Update allowed fields
+    if (name) admin.name = name;
+    if (phoneNumber !== undefined) admin.phoneNumber = phoneNumber;
+    if (linkedinUsername !== undefined) admin.linkedinUsername = linkedinUsername;
+    if (githubUsername !== undefined) admin.githubUsername = githubUsername;
+    if (yearsOfExperience !== undefined) admin.yearsOfExperience = yearsOfExperience;
+
+    await admin.save();
+
+    console.log('Admin updated successfully:', {
+      name: admin.name,
+      phoneNumber: admin.phoneNumber
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        phoneNumber: admin.phoneNumber,
+        yearsOfExperience: admin.yearsOfExperience,
+        linkedinUsername: admin.linkedinUsername,
+        githubUsername: admin.githubUsername,
+        profilePicture: admin.profilePicture
+      }
+    });
+  } catch (error) {
+    console.error('Update admin profile error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
 // @desc    Update superadmin profile
 // @route   PUT /api/admin/superadmin/profile
 // @access  Private/SuperAdmin
@@ -853,6 +921,7 @@ export default {
   getAdminUsers,
   getSuperAdminStats,
   getAllColleges,
+  updateAdminProfile,
   updateSuperAdminProfile,
   uploadSuperAdminProfilePicture,
   getRankingWeights,

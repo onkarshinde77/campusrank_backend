@@ -40,6 +40,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  linkedinUsername: {
+    type: String,
+    trim: true
+  },
   collegeName: {
     type: String,
     trim: true

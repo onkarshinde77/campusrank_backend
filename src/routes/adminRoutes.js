@@ -25,7 +25,8 @@ import {
   updateSuperAdminProfile,
   uploadSuperAdminProfilePicture,
   getRankingWeights,
-  updateRankingWeights
+  updateRankingWeights,
+  updateAdminProfile,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -42,6 +43,7 @@ router.get('/departments', protect, admin, getDepartments);
 router.get('/stats', protect, admin, getDashboardStats);
 router.get('/settings/display', protect, admin, getDisplaySettings);
 router.put('/settings/display', protect, admin, updateDisplaySettings);
+router.put('/profile', protect, admin, updateAdminProfile);
 
 // Super admin routes
 router.route('/')
