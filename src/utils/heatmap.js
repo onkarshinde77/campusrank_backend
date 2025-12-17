@@ -28,66 +28,40 @@ export default function buildHeatmapFromCalendar(submissionCalendarData, year) {
 
     // Use provided year or current year
     const targetYear = year || new Date().getUTCFullYear();
-    const start = new Date(Date.UTC(targetYear, 0, 1));
-    const end = new Date(Date.UTC(targetYear, 11, 31));
 
-    const weeks = [];
-    let week = new Array(7).fill(null);
+    const months = [];
+    const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-    // Start from the Sunday of the week containing Jan 1
-    let cursor = new Date(start);
-    let dayIndex = cursor.getUTCDay();
+    for (let m = 0; m < 12; m++) {
+        const firstDay = new Date(Date.UTC(targetYear, m, 1));
+        const lastDay = new Date(Date.UTC(targetYear, m + 1, 0));
+        const weeks = [];
 
-    // Fill in empty slots before Jan 1 if it doesn't start on Sunday
-    // This is done by starting cursor at the previous Sunday
+        let currentWeek = new Array(7).fill(null);
 
-    // Iterate through the entire year
-    const yearStart = new Date(Date.UTC(targetYear, 0, 1));
-    let loopCursor = new Date(yearStart);
-    loopCursor.setUTCDate(loopCursor.getUTCDate() - loopCursor.getUTCDay()); // Go to Sunday of this week
+        // Iterate through all days of the month
+        for (let d = 1; d <= lastDay.getUTCDate(); d++) {
+            const date = new Date(Date.UTC(targetYear, m, d));
+            const dateStr = date.toISOString().slice(0, 10);
+            const dow = date.getUTCDay(); // 0 is Sunday, 6 is Saturday
 
-    let loopDayIndex = 0;
-    let loopWeek = new Array(7).fill(null);
-
-    // Continue until we've processed the entire year and completed the last week
-    while (loopCursor.getUTCFullYear() < targetYear || loopCursor.getUTCMonth() < 11 || loopCursor.getUTCDate() <= 31) {
-        const key = loopCursor.toISOString().slice(0, 10);
-        const cursorYear = loopCursor.getUTCFullYear();
-
-        // Only add data if it's in the target year
-        if (cursorYear === targetYear) {
-            loopWeek[loopDayIndex] = {
-                date: key,
-                count: byDate[key] || 0
+            currentWeek[dow] = {
+                date: dateStr,
+                count: byDate[dateStr] || 0
             };
+
+            // If it's Saturday or the last day of the month, push the week
+            if (dow === 6 || d === lastDay.getUTCDate()) {
+                weeks.push(currentWeek);
+                currentWeek = new Array(7).fill(null);
+            }
         }
 
-        loopDayIndex++;
-        loopCursor.setUTCDate(loopCursor.getUTCDate() + 1);
-
-        if (loopDayIndex === 7) {
-            weeks.push(loopWeek);
-            loopWeek = new Array(7).fill(null);
-            loopDayIndex = 0;
-        }
-
-        // Safety check to prevent infinite loop
-        if (cursorYear > targetYear) break;
+        months.push({
+            name: MONTH_NAMES[m],
+            weeks: weeks
+        });
     }
 
-    if (loopWeek.some(Boolean)) weeks.push(loopWeek);
-
-    // Month label positions
-    const monthPositions = {};
-    weeks.forEach((w, wi) => {
-        w.forEach(d => {
-            if (!d) return;
-            const m = new Date(d.date).getUTCMonth();
-            if (new Date(d.date).getUTCDate() === 1 && monthPositions[m] == null) {
-                monthPositions[m] = wi;
-            }
-        });
-    });
-
-    return { weeks, monthPositions };
+    return { months };
 }
