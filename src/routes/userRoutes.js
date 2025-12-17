@@ -6,7 +6,8 @@ import {
   getContestInfo,
   uploadProfilePicture,
   getDisplaySettingsForUser,
-  getBanner
+  getBanner,
+  leetcodeHeatmap
 } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -19,5 +20,6 @@ router.put('/update-stats', protect, updateLeetCodeStats);
 router.get('/contest-info', protect, getContestInfo);
 router.get('/display-settings', protect, getDisplaySettingsForUser);
 router.get('/contributions/:username', getBanner);
+router.post('/leetcode/heatmap', leetcodeHeatmap);
 
 export default router;

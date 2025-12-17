@@ -4,6 +4,9 @@ import { fetchLeetCodeStats, fetchContestInfo } from '../services/leetcodeServic
 import { fetchGFGStats } from '../services/gfgcodeService.js';
 import { fetchGitHubStats } from '../services/githubcodeService.js';
 import { defaultDisplaySettings } from './adminController.js';
+import buildHeatmapFromCalendar from '../utils/heatmap.js';
+import fetchLeetCodeCalendars from '../controllers/leetcodeHeatmap.js';
+import fetch from "node-fetch";
 
 const cache = new Map();
 const TTL = 300;
@@ -256,5 +259,34 @@ export const getBanner = async (req, res) => {
   }
 };
 
+export const leetcodeHeatmap = async (req, res) => {
+  try {
+    const { username, year } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    const data = await fetchLeetCodeCalendars(username);
+
+    // Use the provided year or the first active year or current year
+    const targetYear = year || (data.activeYears && data.activeYears[0]) || new Date().getUTCFullYear();
+
+    const heatmap = buildHeatmapFromCalendar(
+      data.submissionCalendar,
+      targetYear
+    );
+
+    res.json({
+      years: data.activeYears || [targetYear],
+      streak: data.streak,
+      totalActiveDays: data.totalActiveDays,
+      heatmap
+    });
+  } catch (err) {
+    console.error('Heatmap error:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch heatmap' });
+  }
+};
 
 
