@@ -273,16 +273,16 @@ export const leetcodeHeatmap = async (req, res) => {
     // Use the provided year or the first active year or current year
     const targetYear = year || (data.activeYears && data.activeYears[0]) || new Date().getUTCFullYear();
 
-    const heatmap = buildHeatmapFromCalendar(
+    const { months, totalActiveDays, streak } = buildHeatmapFromCalendar(
       data.submissionCalendar,
       targetYear
     );
 
     res.json({
       years: data.activeYears || [targetYear],
-      streak: data.streak,
-      totalActiveDays: data.totalActiveDays,
-      heatmap
+      streak: streak,
+      totalActiveDays: totalActiveDays,
+      heatmap: { months }
     });
   } catch (err) {
     console.error('Heatmap error:', err);

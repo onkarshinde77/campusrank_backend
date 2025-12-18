@@ -49,6 +49,7 @@ async function fetchCalendarByYear(username, year) {
       matchedUser(username: $username) {
         userCalendar(year: $year) {
           submissionCalendar
+          streak
         }
       }
     }
