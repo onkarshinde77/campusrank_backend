@@ -62,6 +62,12 @@ const userSchema = new mongoose.Schema({
     min: 1,
     max: 4
   },
+  cgpa: {
+    type: Number,
+    min: 0,
+    max: 10,
+    default: 0
+  },
   role: {
     type: String,
     enum: ['user'],
