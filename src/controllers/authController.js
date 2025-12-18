@@ -196,7 +196,8 @@ export const register = async (req, res) => {
           year: user.year,
           leetcodeId: user.leetcodeId,
           gfgId: user.gfgId,
-          githubUsername: user.githubUsername
+          githubUsername: user.githubUsername,
+          linkedinUsername: user.linkedinUsername,
         }
       });
     }
@@ -401,6 +402,7 @@ export const login = async (req, res) => {
         collegeName: user.collegeName,
         department: user.department,
         year: user.year,
+        cgpa: user.cgpa,
         leetcodeId: user.leetcodeId,
         gfgId: user.gfgId,
         linkedinUsername: user.linkedinUsername,
