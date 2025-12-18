@@ -43,6 +43,7 @@ export const updateProfile = async (req, res) => {
     user.name = req.body.name || user.name;
     user.department = req.body.department || user.department;
     user.year = req.body.year || user.year;
+    user.cgpa = req.body.cgpa !== undefined ? req.body.cgpa : user.cgpa;
     user.leetcodeId = req.body.leetcodeId || user.leetcodeId;
     user.gfgId = req.body.gfgId || user.gfgId;
     user.linkedinUsername = req.body.linkedinUsername || user.linkedinUsername;

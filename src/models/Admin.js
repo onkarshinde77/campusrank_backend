@@ -37,7 +37,7 @@ const adminSchema = new mongoose.Schema({
     unique: true // Each college should have only one admin
   },
   credentialCode: {
-    type: String,
+    type: Number,
     trim: true
   },
   phoneNumber: {
@@ -58,7 +58,7 @@ const adminSchema = new mongoose.Schema({
   githubUsername: {
     type: String,
     trim: true,
-    required: [true, 'Please provide a GitHub username'],
+    required: [false, 'Please provide a GitHub username'],
   },
   role: {
     type: String,

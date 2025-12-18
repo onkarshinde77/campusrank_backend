@@ -141,7 +141,8 @@ export const register = async (req, res) => {
           collegeName: admin.collegeName,
           phoneNumber: admin.phoneNumber,
           yearsOfExperience: admin.yearsOfExperience,
-          linkedinUsername: admin.linkedinUsername
+          linkedinUsername: admin.linkedinUsername,
+          credentialCode:admin.credentialCode
         }
       });
     } else {
@@ -196,7 +197,8 @@ export const register = async (req, res) => {
           year: user.year,
           leetcodeId: user.leetcodeId,
           gfgId: user.gfgId,
-          githubUsername: user.githubUsername
+          githubUsername: user.githubUsername,
+          linkedinUsername: user.linkedinUsername,
         }
       });
     }
@@ -348,7 +350,9 @@ export const login = async (req, res) => {
           yearsOfExperience: admin.yearsOfExperience,
           linkedinUsername: admin.linkedinUsername,
           githubUsername: admin.githubUsername,
-          profilePicture: admin.profilePicture
+          profilePicture: admin.profilePicture,
+          credentialCode: admin.credentialCode
+
         }
       });
     }
@@ -401,6 +405,7 @@ export const login = async (req, res) => {
         collegeName: user.collegeName,
         department: user.department,
         year: user.year,
+        cgpa: user.cgpa,
         leetcodeId: user.leetcodeId,
         gfgId: user.gfgId,
         linkedinUsername: user.linkedinUsername,

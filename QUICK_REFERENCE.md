@@ -58,7 +58,7 @@ npm run dev
 ### 3. Verify Features
 ```bash
 # Check health
-curl http://localhost:5000/api/health
+curl http://localhost:5000/
 
 # MongoDB should have 14 indexes now
 # Backups created daily at 2 AM
