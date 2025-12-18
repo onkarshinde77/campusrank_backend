@@ -141,7 +141,8 @@ export const register = async (req, res) => {
           collegeName: admin.collegeName,
           phoneNumber: admin.phoneNumber,
           yearsOfExperience: admin.yearsOfExperience,
-          linkedinUsername: admin.linkedinUsername
+          linkedinUsername: admin.linkedinUsername,
+          credentialCode:admin.credentialCode
         }
       });
     } else {
@@ -349,7 +350,9 @@ export const login = async (req, res) => {
           yearsOfExperience: admin.yearsOfExperience,
           linkedinUsername: admin.linkedinUsername,
           githubUsername: admin.githubUsername,
-          profilePicture: admin.profilePicture
+          profilePicture: admin.profilePicture,
+          credentialCode: admin.credentialCode
+
         }
       });
     }
