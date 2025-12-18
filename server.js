@@ -27,8 +27,8 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // Setup database monitoring and logging
-setupMongooseLogging(mongoose);
-setupConnectionMonitoring(mongoose);
+// setupMongooseLogging(mongoose);
+// setupConnectionMonitoring(mongoose);
 
 // Initialize database indexes on startup
 mongoose.connection.once('open', async () => {
@@ -39,7 +39,7 @@ mongoose.connection.once('open', async () => {
     console.error('Failed to create indexes:', error);
   }
 });
-const allowedOrigins = ['http://localhost:3000', 'https://www.rankincampus.com']; 
+const allowedOrigins = ['http://localhost:3000', 'https://www.rankincampus.com'];
 // Middleware
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
@@ -50,7 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/send',emailRouter);
+app.use('/api/send', emailRouter);
 // Health check route
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });

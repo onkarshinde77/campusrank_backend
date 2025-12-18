@@ -1,50 +1,112 @@
 import fetch from "node-fetch";
 
-export default async function fetchLeetCodeCalendars(username) {
+const LEETCODE_GRAPHQL = "https://leetcode.com/graphql";
+const COMMON_HEADERS = {
+  "Content-Type": "application/json",
+  "Accept": "application/json",
+  "Referer": "https://leetcode.com",
+  "User-Agent": "Mozilla/5.0"
+};
+
+/**
+ * STEP 1: Fetch all active years
+ */
+async function fetchActiveYears(username) {
   const query = `
-    query UserCalendar($username: String!) {
+    query GetActiveYears($username: String!) {
       matchedUser(username: $username) {
         userCalendar {
           activeYears
-        }
-        calendars: userCalendar {
-          submissionCalendar
-          streak
-          totalActiveDays
         }
       }
     }
   `;
 
-  const res = await fetch("https://leetcode.com/graphql", {
+  const res = await fetch(LEETCODE_GRAPHQL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "Referer": "https://leetcode.com",
-      "Cookie": process.env.LEETCODE_COOKIE || "",
-      "x-csrftoken": process.env.CSRF_TOKEN || ""
-    },
+    headers: COMMON_HEADERS,
     body: JSON.stringify({
       query,
       variables: { username }
     })
   });
 
-  const json = await res.json();
-  console.log("LeetCode calendar response:", json);
-
-  if (!json?.data?.matchedUser) {
-    throw new Error("Invalid LeetCode response or user not found");
+  const text = await res.text();
+  if (!text.startsWith("{")) {
+    throw new Error("LeetCode blocked activeYears request");
   }
 
-  const userData = json.data.matchedUser;
-
-  return {
-    activeYears: userData.userCalendar?.activeYears || [],
-    submissionCalendar: userData.calendars?.submissionCalendar || "{}",
-    streak: userData.calendars?.streak || { current: 0, max: 0 },
-    totalActiveDays: userData.calendars?.totalActiveDays || 0
-  };
+  const json = JSON.parse(text);
+  return json?.data?.matchedUser?.userCalendar?.activeYears || [];
 }
 
+/**
+ * STEP 2: Fetch submissionCalendar for ONE year
+ */
+async function fetchCalendarByYear(username, year) {
+  const query = `
+    query UserCalendarByYear($username: String!, $year: Int!) {
+      matchedUser(username: $username) {
+        userCalendar(year: $year) {
+          submissionCalendar
+        }
+      }
+    }
+  `;
+
+  const res = await fetch(LEETCODE_GRAPHQL, {
+    method: "POST",
+    headers: COMMON_HEADERS,
+    body: JSON.stringify({
+      query,
+      variables: { username, year }
+    })
+  });
+
+  const text = await res.text();
+  if (!text.startsWith("{")) {
+    throw new Error(`LeetCode blocked calendar for year ${year}`);
+  }
+
+  const json = JSON.parse(text);
+  return (
+    json?.data?.matchedUser?.userCalendar?.submissionCalendar || "{}"
+  );
+}
+
+/**
+ * STEP 3: MAIN FUNCTION
+ * Fetch ALL years → merge into ONE submissionCalendar
+ */
+export default async function fetchLeetCodeHeatmap(username) {
+  // 1️⃣ Get all active years automatically
+  const activeYears = await fetchActiveYears(username);
+
+  if (activeYears.length === 0) {
+    throw new Error("No active years found for this user");
+  }
+
+  let mergedCalendar = {};
+  let totalActiveDays = 0;
+
+  // 2️⃣ Fetch each year's calendar and merge
+  for (const year of activeYears) {
+    const calendarStr = await fetchCalendarByYear(username, year);
+    const calendarObj = JSON.parse(calendarStr);
+
+    totalActiveDays += Object.keys(calendarObj).length;
+
+    mergedCalendar = {
+      ...mergedCalendar,
+      ...calendarObj
+    };
+  }
+
+  // 3️⃣ Final heatmap-ready data
+  return {
+    username,
+    activeYears,
+    totalActiveDays,
+    submissionCalendar: mergedCalendar
+  };
+}
