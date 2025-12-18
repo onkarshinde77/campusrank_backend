@@ -403,6 +403,7 @@ export const login = async (req, res) => {
         year: user.year,
         leetcodeId: user.leetcodeId,
         gfgId: user.gfgId,
+        linkedinUsername: user.linkedinUsername,
         githubUsername: user.githubUsername
       }
     });

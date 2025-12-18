@@ -4,6 +4,13 @@ import { fetchLeetCodeStats, fetchContestInfo } from '../services/leetcodeServic
 import { fetchGFGStats } from '../services/gfgcodeService.js';
 import { fetchGitHubStats } from '../services/githubcodeService.js';
 import { defaultDisplaySettings } from './adminController.js';
+import buildHeatmapFromCalendar from '../utils/heatmap.js';
+import fetchLeetCodeCalendars from '../controllers/leetcodeHeatmap.js';
+import fetch from "node-fetch";
+
+const cache = new Map();
+const TTL = 300;
+
 
 // @desc    Get user profile
 // @route   GET /api/users/profile/:id
@@ -11,7 +18,7 @@ import { defaultDisplaySettings } from './adminController.js';
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -40,7 +47,7 @@ export const updateProfile = async (req, res) => {
     user.gfgId = req.body.gfgId || user.gfgId;
     user.linkedinUsername = req.body.linkedinUsername || user.linkedinUsername;
     user.githubUsername = req.body.githubUsername || user.githubUsername;
-    
+
     // Handle profile picture if provided
     if (req.body.profilePicture) {
       user.profilePicture = req.body.profilePicture;
@@ -78,9 +85,9 @@ export const uploadProfilePicture = async (req, res) => {
       profilePicture: updatedUser.profilePicture
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: error.message 
+      message: error.message
     });
   }
 };
@@ -91,7 +98,7 @@ export const uploadProfilePicture = async (req, res) => {
 export const updateLeetCodeStats = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -134,8 +141,8 @@ export const updateLeetCodeStats = async (req, res) => {
     }
 
     if (!leetcodeStats && !gfgStats && !githubStats) {
-      return res.status(400).json({ 
-        message: 'Failed to fetch stats. Please check your LeetCode ID, GFG ID, or GitHub username.' 
+      return res.status(400).json({
+        message: 'Failed to fetch stats. Please check your LeetCode ID, GFG ID, or GitHub username.'
       });
     }
 
@@ -167,8 +174,8 @@ export const getContestInfo = async (req, res) => {
     const contestInfo = await fetchContestInfo(user.leetcodeId);
 
     if (!contestInfo) {
-      return res.status(404).json({ 
-        message: 'No contest data found. User may not have participated in contests.' 
+      return res.status(404).json({
+        message: 'No contest data found. User may not have participated in contests.'
       });
     }
 
@@ -216,10 +223,10 @@ export const getDisplaySettingsForUser = async (req, res) => {
         ...(stored.dashboard || {})
       },
       ranking: {
-    ...defaultDisplaySettings.ranking,
-    ...(current.ranking || {}),
-    ...(ranking || {})
-  }
+        ...defaultDisplaySettings.ranking,
+        ...(current.ranking || {}),
+        ...(ranking || {})
+      }
     };
 
     res.status(200).json({
@@ -233,3 +240,53 @@ export const getDisplaySettingsForUser = async (req, res) => {
     });
   }
 };
+
+export const getBanner = async (req, res) => {
+  try {
+    const username = req.params.username;
+
+    const url = `https://ghchart.rshah.org/00ff00/${username}`;
+
+    const r = await fetch(url);
+    const svg = await r.text();
+
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.send(svg);
+
+  } catch (err) {
+    console.error("Banner error:", err);
+    res.status(500).send("Server error");
+  }
+};
+
+export const leetcodeHeatmap = async (req, res) => {
+  try {
+    const { username, year } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    const data = await fetchLeetCodeCalendars(username);
+
+    // Use the provided year or the first active year or current year
+    const targetYear = year || (data.activeYears && data.activeYears[0]) || new Date().getUTCFullYear();
+
+    const heatmap = buildHeatmapFromCalendar(
+      data.submissionCalendar,
+      targetYear
+    );
+
+    res.json({
+      years: data.activeYears || [targetYear],
+      streak: data.streak,
+      totalActiveDays: data.totalActiveDays,
+      heatmap
+    });
+  } catch (err) {
+    console.error('Heatmap error:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch heatmap' });
+  }
+};
+
+

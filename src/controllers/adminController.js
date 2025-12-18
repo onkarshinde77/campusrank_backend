@@ -643,7 +643,8 @@ export const updateAdminProfile = async (req, res) => {
       phoneNumber, 
       linkedinUsername, 
       githubUsername, 
-      yearsOfExperience 
+      yearsOfExperience,
+      credentialCode
     } = req.body;
 
     console.log('Admin profile update request:', {
@@ -669,6 +670,7 @@ export const updateAdminProfile = async (req, res) => {
     if (linkedinUsername !== undefined) admin.linkedinUsername = linkedinUsername;
     if (githubUsername !== undefined) admin.githubUsername = githubUsername;
     if (yearsOfExperience !== undefined) admin.yearsOfExperience = yearsOfExperience;
+    if (credentialCode !== undefined) admin.credentialCode = credentialCode;
 
     await admin.save();
 
@@ -689,6 +691,7 @@ export const updateAdminProfile = async (req, res) => {
         yearsOfExperience: admin.yearsOfExperience,
         linkedinUsername: admin.linkedinUsername,
         githubUsername: admin.githubUsername,
+        credentialCode: admin.credentialCode,
         profilePicture: admin.profilePicture
       }
     });
