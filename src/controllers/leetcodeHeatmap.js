@@ -1,4 +1,5 @@
 import fetch from "node-fetch";
+import buildHeatmapFromCalendar from '../utils/heatmap.js';
 
 const LEETCODE_GRAPHQL = "https://leetcode.com/graphql";
 const COMMON_HEADERS = {
@@ -41,7 +42,7 @@ async function fetchActiveYears(username) {
 }
 
 /**
- * STEP 2: Fetch submissionCalendar for ONE year
+ * STEP 2: Fetch submissionCalendar and streak for ONE year
  */
 async function fetchCalendarByYear(username, year) {
   const query = `
@@ -70,9 +71,10 @@ async function fetchCalendarByYear(username, year) {
   }
 
   const json = JSON.parse(text);
-  return (
-    json?.data?.matchedUser?.userCalendar?.submissionCalendar || "{}"
-  );
+  return {
+    submissionCalendar: json?.data?.matchedUser?.userCalendar?.submissionCalendar || "{}",
+    streak: json?.data?.matchedUser?.userCalendar?.streak || { current: 0, longest: 0 }
+  };
 }
 
 /**
@@ -92,7 +94,7 @@ export default async function fetchLeetCodeHeatmap(username) {
 
   // 2️⃣ Fetch each year's calendar and merge
   for (const year of activeYears) {
-    const calendarStr = await fetchCalendarByYear(username, year);
+    const { submissionCalendar: calendarStr } = await fetchCalendarByYear(username, year);
     const calendarObj = JSON.parse(calendarStr);
 
     totalActiveDays += Object.keys(calendarObj).length;
@@ -109,5 +111,118 @@ export default async function fetchLeetCodeHeatmap(username) {
     activeYears,
     totalActiveDays,
     submissionCalendar: mergedCalendar
+  };
+}
+
+/**
+ * Fetch all years data with submission calendars and streak
+ * Returns data for each year separately (like the API response)
+ */
+// export  async function fetchLeetCodeAllYearsData(username) {
+//   const activeYears = await fetchActiveYears(username);
+
+//   if (activeYears.length === 0) {
+//     throw new Error("No active years found for this user");
+//   }
+
+//   const yearsData = {};
+//   let totalActiveDays = 0;
+//   let totalSubmissions = 0;
+//   let maxStreakOverall = 0;
+
+//   // Fetch each year's calendar and streak separately
+//   for (const year of activeYears) {
+//     const { submissionCalendar: calendarStr, streak } = await fetchCalendarByYear(username, year);
+    
+//     // Parse the calendar to count active days and submissions
+//     const calendarObj = JSON.parse(calendarStr);
+//     const yearActiveDays = Object.keys(calendarObj).length;
+    
+//     // Count total submissions for this year
+//     const yearSubmissions = Object.values(calendarObj).reduce((sum, count) => sum + count, 0);
+//     totalSubmissions += yearSubmissions;
+//     totalActiveDays += yearActiveDays;
+
+//     // Build heatmap to calculate max streak
+//     const heatmapData = buildHeatmapFromCalendar(calendarStr, year);
+//     const maxStreak = heatmapData.streak?.max || 0;
+//     if (maxStreak > maxStreakOverall) {
+//       maxStreakOverall = maxStreak;
+//     }
+
+//     console.log(`[YEAR ${year}] Submissions: ${yearSubmissions}, ActiveDays: ${yearActiveDays}, MaxStreak: ${maxStreak}`);
+
+//     // Store submission calendar as stringified JSON for database
+//     yearsData[`y${year}`] = {
+//   submissionCalendar: JSON.stringify(calendarObj),
+//   streak: maxStreak,
+//   totalActiveDays: yearActiveDays,
+//   totalSubmissions: yearSubmissions
+// };
+
+//   }
+//   return {
+//     username,
+//     activeYears,
+//     totalActiveDays,
+//     totalSubmissions,
+//     maxStreak: maxStreakOverall,
+//     years: yearsData
+//   };
+// }
+
+export async function fetchLeetCodeAllYearsData(username) {
+  const activeYears = await fetchActiveYears(username);
+
+  if (activeYears.length === 0) {
+    throw new Error("No active years found for this user");
+  }
+
+  const yearsData = {};
+  let totalActiveDays = 0;
+  let totalSubmissions = 0;
+  let maxStreakOverall = 0;
+
+  for (const year of activeYears) {
+    const { submissionCalendar: calendarStr } =
+      await fetchCalendarByYear(username, year);
+
+    const calendarObj = JSON.parse(calendarStr);
+
+    const yearActiveDays = Object.keys(calendarObj).length;
+    const yearSubmissions = Object.values(calendarObj).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+
+    totalActiveDays += yearActiveDays;
+    totalSubmissions += yearSubmissions;
+
+    const heatmapData = buildHeatmapFromCalendar(calendarObj, year);
+    const maxStreak = heatmapData?.streak?.max || 0;
+
+    if (maxStreak > maxStreakOverall) {
+      maxStreakOverall = maxStreak;
+    }
+
+    console.log(
+      `[YEAR ${year}] Submissions: ${yearSubmissions}, ActiveDays: ${yearActiveDays}, MaxStreak: ${maxStreak}`
+    );
+
+    yearsData[`y${year}`] = {
+      submissionCalendar: JSON.stringify(calendarObj),
+      totalActiveDays: yearActiveDays,
+      totalSubmissions: yearSubmissions,
+      maxStreak: maxStreak      
+    };
+  }
+
+  return {
+    username,
+    activeYears,
+    totalActiveDays,
+    totalSubmissions,
+    maxStreak: maxStreakOverall,
+    years: yearsData
   };
 }

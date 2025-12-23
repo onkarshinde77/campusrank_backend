@@ -7,7 +7,10 @@ import {
   uploadProfilePicture,
   getDisplaySettingsForUser,
   getBanner,
-  leetcodeHeatmap
+  leetcodeHeatmap,
+  getLeetcodeHeatmap,
+  saveLeetcodeHeatmapToUser,
+  getUserLeetcodeHeatmap
 } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { fetchGitHubHeatmap } from '../controllers/githubHeatmap.js';
@@ -23,5 +26,10 @@ router.get('/display-settings', protect, getDisplaySettingsForUser);
 router.get('/contributions/:username', getBanner);
 router.post('/leetcode/heatmap', leetcodeHeatmap);
 router.post('/github/heatmap', fetchGitHubHeatmap);
+router.post("/leetcode/heatmap-fetch", getLeetcodeHeatmap);
+// Protected heatmap routes
+router.post('/save-heatmap', protect, saveLeetcodeHeatmapToUser);
+router.get('/heatmap', protect, getUserLeetcodeHeatmap);
+
 
 export default router;
