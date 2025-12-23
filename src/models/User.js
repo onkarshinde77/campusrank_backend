@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema({
     required: true
   },
   department: {
-    type: String,
+    type: String, 
     trim: true
   },
   year: {
@@ -117,6 +117,62 @@ const userSchema = new mongoose.Schema({
     contributions: { type: Number, default: 0 },
     lastUpdated: { type: Date, default: Date.now }
   },
+  leetcodeHeatmap: {
+  activeYears: {
+    type: [Number], // [2024, 2025]
+    default: []
+  },
+
+  years: {
+    type: Map,
+    of: new mongoose.Schema(
+      {
+        submissionCalendar: {
+          type: String, // stored as JSON string
+          required: true
+        },
+
+        totalActiveDays: {
+          type: Number,
+          default: 0
+        },
+
+        totalSubmissions: {
+          type: Number,
+          default: 0
+        },
+
+        maxStreak: {
+          type: Number,
+          default: 0
+        }
+      },
+      { _id: false }
+    ),
+    default: {}
+  },
+
+  totalActiveDays: {
+    type: Number,
+    default: 0
+  },
+
+  totalSubmissions: {
+    type: Number,
+    default: 0
+  },
+
+  maxStreak: {
+    type: Number,
+    default: 0
+  },
+
+  lastUpdated: {
+    type: Date,
+    default: Date.now
+  }
+},
+
   isActive: {
     type: Boolean,
     default: true
