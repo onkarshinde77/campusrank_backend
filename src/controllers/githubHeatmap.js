@@ -1,5 +1,6 @@
 import fetch from "node-fetch";
 
+
 export const fetchGitHubHeatmap = async (req, res) => {
   console.log("GitHub Heatmap Controller Loaded", process.env.GIHUB_HITMAP_TOKEN);
   try {
