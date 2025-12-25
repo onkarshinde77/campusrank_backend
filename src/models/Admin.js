@@ -37,7 +37,7 @@ const adminSchema = new mongoose.Schema({
     unique: true // Each college should have only one admin
   },
   credentialCode: {
-    type: Number,
+    type: String,
     trim: true
   },
   phoneNumber: {
