@@ -19,14 +19,14 @@ const generateToken = (id) => {
 export const googleAuthCallback = async (req, res) => {
   try {
     const { code } = req.query;
-    
+
     // Exchange authorization code for tokens
     const { tokens } = await oauth2Client.getToken(code);
     const ticket = await oauth2Client.verifyIdToken({
       idToken: tokens.id_token,
       audience: process.env.GOOGLE_CLIENT_ID
     });
-    
+
     const payload = ticket.getPayload();
     const { email, name, picture } = payload;
 
@@ -56,7 +56,7 @@ export const googleAuthCallback = async (req, res) => {
 export const githubAuthCallback = async (req, res) => {
   try {
     const { code } = req.query;
-    
+
     // Exchange code for access token
     const tokenResponse = await axios.post(
       'https://github.com/login/oauth/access_token',
@@ -103,14 +103,14 @@ export const githubAuthCallback = async (req, res) => {
 export const register = async (req, res) => {
   try {
     const { role, ...userData } = req.body;
-    
+
     if (role === 'admin') {
       // Check if admin already exists for this college
       const existingAdmin = await Admin.findOne({ collegeName: userData.collegeName });
       if (existingAdmin) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'An admin already exists for this college' 
+        return res.status(400).json({
+          success: false,
+          message: 'An admin already exists for this college'
         });
       }
 
@@ -142,7 +142,7 @@ export const register = async (req, res) => {
           phoneNumber: admin.phoneNumber,
           yearsOfExperience: admin.yearsOfExperience,
           linkedinUsername: admin.linkedinUsername,
-          credentialCode:admin.credentialCode
+          credentialCode: admin.credentialCode
         }
       });
     } else {
@@ -150,9 +150,9 @@ export const register = async (req, res) => {
       // Find admin for the selected college
       const collegeAdmin = await Admin.findOne({ collegeName: userData.collegeName });
       if (!collegeAdmin) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'No admin found for this college. Please contact support.' 
+        return res.status(400).json({
+          success: false,
+          message: 'No admin found for this college. Please contact support.'
         });
       }
 
@@ -199,6 +199,10 @@ export const register = async (req, res) => {
           gfgId: user.gfgId,
           githubUsername: user.githubUsername,
           linkedinUsername: user.linkedinUsername,
+          profilePicture: user.profilePicture,
+          leetcodeStats: user.leetcodeStats,
+          gfgStats: user.gfgStats,
+          githubStats: user.githubStats
         }
       });
     }
@@ -263,8 +267,8 @@ export const forgotPassword = async (req, res) => {
 
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Error processing forgot password request',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -279,7 +283,7 @@ export const resetPassword = async (req, res) => {
   try {
     console.log('Reset password request body:', req.body);
     console.log('Token:', req.params.token);
-    
+
     // Get hashed token
     const hashedToken = crypto
       .createHash('sha256')
@@ -409,7 +413,11 @@ export const login = async (req, res) => {
         leetcodeId: user.leetcodeId,
         gfgId: user.gfgId,
         linkedinUsername: user.linkedinUsername,
-        githubUsername: user.githubUsername
+        githubUsername: user.githubUsername,
+        profilePicture: user.profilePicture,
+        leetcodeStats: user.leetcodeStats,
+        gfgStats: user.gfgStats,
+        githubStats: user.githubStats
       }
     });
   } catch (error) {
@@ -420,7 +428,7 @@ export const login = async (req, res) => {
 // export const login = async (req, res) => {
 //   try {
 //     const { email, password } = req.body;
-    
+
 //     // Check if it's an admin
 //     let admin = await Admin.findOne({ email }).select('+password');
 //     if (admin) {
@@ -454,7 +462,7 @@ export const login = async (req, res) => {
 //         }
 //       });
 //     }
-    
+
 //     else {
 //       // Check if it's a user
 //       let user = await User.findOne({ email }).select('+password');
@@ -506,7 +514,7 @@ export const getMe = async (req, res) => {
   try {
     // req.user is already set by the protect middleware
     const user = req.user;
-    
+
     // Return user data based on role
     if (user.role === 'admin' || user.role === 'superadmin') {
       res.status(200).json({
@@ -550,6 +558,6 @@ export const getMe = async (req, res) => {
       message: error.message
     });
   }
-  
+
 };
 
