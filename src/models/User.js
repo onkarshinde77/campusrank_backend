@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema({
     required: true
   },
   department: {
-    type: String, 
+    type: String,
     trim: true
   },
   year: {
@@ -117,61 +117,7 @@ const userSchema = new mongoose.Schema({
     contributions: { type: Number, default: 0 },
     lastUpdated: { type: Date, default: Date.now }
   },
-  leetcodeHeatmap: {
-  activeYears: {
-    type: [Number], // [2024, 2025]
-    default: []
-  },
 
-  years: {
-    type: Map,
-    of: new mongoose.Schema(
-      {
-        submissionCalendar: {
-          type: String, // stored as JSON string
-          required: true
-        },
-
-        totalActiveDays: {
-          type: Number,
-          default: 0
-        },
-
-        totalSubmissions: {
-          type: Number,
-          default: 0
-        },
-
-        maxStreak: {
-          type: Number,
-          default: 0
-        }
-      },
-      { _id: false }
-    ),
-    default: {}
-  },
-
-  totalActiveDays: {
-    type: Number,
-    default: 0
-  },
-
-  totalSubmissions: {
-    type: Number,
-    default: 0
-  },
-
-  maxStreak: {
-    type: Number,
-    default: 0
-  },
-
-  lastUpdated: {
-    type: Date,
-    default: Date.now
-  }
-},
 
   isActive: {
     type: Boolean,
@@ -184,7 +130,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
+userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
   }
@@ -194,12 +140,12 @@ userSchema.pre('save', async function(next) {
 });
 
 // Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
 // Generate and hash password reset token
-userSchema.methods.getResetPasswordToken = function() {
+userSchema.methods.getResetPasswordToken = function () {
   // Generate token
   const resetToken = crypto.randomBytes(20).toString('hex');
 

@@ -1,84 +1,9 @@
 import fetch from "node-fetch";
+import GitHubHeatmap from "../models/GitHubHeatmap.js";
+import User from "../models/User.js";
 
-export const fetchGitHubHeatmap = async (req, res) => {
-  console.log("GitHub Heatmap Controller Loaded", process.env.GIHUB_HITMAP_TOKEN);
-  try {
-    console.log("GitHub Heatmap Request Received:", req.body);
-    const { username, from, to, fetchYears } = req.body;
-
-    if (!username) {
-      return res.status(400).json({ error: "GitHub username is required" });
-    }
-
-    const token = process.env.GITHUB_TOKEN || process.env.GIHUB_HITMAP_TOKEN;
-
-    if (!token) {
-      console.error("GITHUB_TOKEN (or GIHUB_HITMAP_TOKEN) is missing in environment variables");
-      return res.status(500).json({ error: "Server configuration error" });
-    }
-
-    // If fetchYears is true, just return the list of valid years
-    if (fetchYears) {
-      const yearQuery = `
-        query ($login: String!) {
-          user(login: $login) {
-            createdAt
-            contributionsCollection {
-                contributionYears
-            }
-          }
-        }
-      `;
-
-      try {
-        const response = await fetch("https://api.github.com/graphql", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: yearQuery,
-            variables: { login: username },
-          }),
-        });
-
-        const data = await response.json();
-        if (data.errors) {
-          return res.status(400).json({ error: "Failed to fetch GitHub user data", details: data.errors });
-        }
-        if (!data.data || !data.data.user) {
-          return res.status(404).json({ error: "User not found" });
-        }
-
-        // Use contributionYears provided by GitHub if available, otherwise calculate from createdAt
-        let years = data.data.user.contributionsCollection?.contributionYears || [];
-
-        if (years.length === 0) {
-          const createdYear = new Date(data.data.user.createdAt).getFullYear();
-          const currentYear = new Date().getFullYear();
-          for (let y = currentYear; y >= createdYear; y--) {
-            years.push(y);
-          }
-        }
-
-        return res.json({ years });
-
-      } catch (err) {
-        console.error("Error fetching GitHub years:", err);
-        return res.status(500).json({ error: "Failed to fetch years" });
-      }
-    }
-
-    // Default to current year if dates are not provided
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const fromDate = from || `${currentYear}-01-01T00:00:00Z`;
-    const toDate = to || `${currentYear}-12-31T23:59:59Z`;
-
-
-
-    const query = `
+const fetchFromGitHubAPI = async (username, from, to, token) => {
+  const query = `
       query ($login: String!, $from: DateTime!, $to: DateTime!) {
         user(login: $login) {
           contributionsCollection(from: $from, to: $to) {
@@ -97,42 +22,163 @@ export const fetchGitHubHeatmap = async (req, res) => {
       }
     `;
 
-    console.log("Fetching from GitHub GraphQL...");
-    const response = await fetch("https://api.github.com/graphql", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
+  const response = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      variables: {
+        login: username,
+        from: from,
+        to: to,
       },
-      body: JSON.stringify({
-        query,
-        variables: {
-          login: username,
-          from: fromDate,
-          to: toDate,
+    }),
+  });
+
+  const data = await response.json();
+  if (data.errors) throw new Error(JSON.stringify(data.errors));
+  if (!data.data?.user) throw new Error("User not found");
+
+  return data.data.user.contributionsCollection.contributionCalendar;
+};
+
+const fetchGitHubYears = async (username, token) => {
+  const yearQuery = `
+        query ($login: String!) {
+          user(login: $login) {
+            createdAt
+            contributionsCollection {
+                contributionYears
+            }
+          }
+        }
+      `;
+
+  const response = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: yearQuery,
+      variables: { login: username },
+    }),
+  });
+
+  const data = await response.json();
+  if (data.errors) throw new Error(JSON.stringify(data.errors));
+  if (!data.data?.user) throw new Error("User not found");
+
+  let years = data.data.user.contributionsCollection?.contributionYears || [];
+  if (years.length === 0) {
+    const createdYear = new Date(data.data.user.createdAt).getFullYear();
+    const currentYear = new Date().getFullYear();
+    for (let y = currentYear; y >= createdYear; y--) {
+      years.push(y);
+    }
+  }
+  return years;
+};
+
+export const fetchGitHubHeatmap = async (req, res) => {
+  try {
+    const { username, from, to, fetchYears, refresh } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: "GitHub username is required" });
+    }
+
+    // Try to link to User
+    const user = await User.findOne({ githubUsername: username });
+    const token = process.env.GITHUB_TOKEN || process.env.GIHUB_HITMAP_TOKEN;
+
+    // HANDLE YEARS REQUEST
+    if (fetchYears) {
+      // Check DB first
+      if (!refresh && user) {
+        const cached = await GitHubHeatmap.findOne({ userId: user._id });
+        if (cached && cached.activeYears && cached.activeYears.length > 0) {
+          return res.json({ years: cached.activeYears });
+        }
+      }
+
+      // Fetch from API
+      try {
+        const years = await fetchGitHubYears(username, token);
+
+        // Update DB only if user exists and we have full data? 
+        // We might just update the activeYears array in a "partial" update or wait for full fetch?
+        // Let's safe-update if doc exists, or create new.
+        if (user) {
+          await GitHubHeatmap.findOneAndUpdate(
+            { userId: user._id },
+            {
+              $set: {
+                username: username,
+                activeYears: years,
+                lastUpdated: new Date()
+              }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+        }
+
+        return res.json({ years });
+      } catch (err) {
+        console.error("Error fetching GitHub years:", err);
+        return res.status(500).json({ error: "Failed to fetch years" });
+      }
+    }
+
+    // HANDLE HEATMAP DATA REQUEST
+    // Calculate Year from 'from' date or current year
+    const fromDate = from ? new Date(from) : new Date(new Date().getFullYear(), 0, 1);
+    const targetYear = fromDate.getFullYear();
+    const yearKey = targetYear.toString();
+
+    // Check DB
+    if (!refresh && user) {
+      const cached = await GitHubHeatmap.findOne({ userId: user._id });
+      if (cached && cached.years && cached.years.has(yearKey)) {
+        const yearData = cached.years.get(yearKey);
+        // Return cached data
+        return res.json({
+          totalContributions: yearData.totalContributions,
+          weeks: yearData.weeks
+        });
+      }
+    }
+
+    // Fetch from API
+    const now = new Date();
+    const apiFrom = from || `${targetYear}-01-01T00:00:00Z`;
+    const apiTo = to || `${targetYear}-12-31T23:59:59Z`;
+
+    const calendar = await fetchFromGitHubAPI(username, apiFrom, apiTo, token);
+
+    // Update DB
+    if (user) {
+      const updateData = {
+        [`years.${yearKey}`]: {
+          year: targetYear,
+          totalContributions: calendar.totalContributions,
+          weeks: calendar.weeks
         },
-      }),
-    });
+        lastUpdated: new Date()
+      };
 
-    const data = await response.json();
-
-    if (data.errors) {
-      console.error("GitHub API Errors:", JSON.stringify(data.errors, null, 2));
-      return res.status(400).json({ error: "Failed to fetch GitHub data", details: data.errors });
+      await GitHubHeatmap.findOneAndUpdate(
+        { userId: user._id },
+        {
+          $set: { username: username, ...updateData }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
     }
-
-    // Check for root-level API errors (like Bad Credentials)
-    if (data.message) {
-      console.error("GitHub API Error Message:", data.message);
-      return res.status(401).json({ error: `GitHub API Error: ${data.message}` });
-    }
-
-    if (!data.data || !data.data.user) {
-      console.error("User not found or no data returned. Full Response:", JSON.stringify(data, null, 2));
-      return res.status(404).json({ error: "User not found on GitHub" });
-    }
-
-    const calendar = data.data.user.contributionsCollection.contributionCalendar;
 
     res.json({
       totalContributions: calendar.totalContributions,
@@ -141,6 +187,6 @@ export const fetchGitHubHeatmap = async (req, res) => {
 
   } catch (error) {
     console.error("Error fetching GitHub heatmap:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
