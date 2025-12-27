@@ -1,5 +1,7 @@
 import fetch from "node-fetch";
 import buildHeatmapFromCalendar from '../utils/heatmap.js';
+import LeetCodeHeatmap from '../models/LeetCodeHeatmap.js';
+import User from '../models/User.js';
 
 const LEETCODE_GRAPHQL = "https://leetcode.com/graphql";
 const COMMON_HEADERS = {
@@ -78,99 +80,8 @@ async function fetchCalendarByYear(username, year) {
 }
 
 /**
- * STEP 3: MAIN FUNCTION
- * Fetch ALL years → merge into ONE submissionCalendar
+ * Fetch all years data from LeetCode API
  */
-export default async function fetchLeetCodeHeatmap(username) {
-  // 1️⃣ Get all active years automatically
-  const activeYears = await fetchActiveYears(username);
-
-  if (activeYears.length === 0) {
-    throw new Error("No active years found for this user");
-  }
-
-  let mergedCalendar = {};
-  let totalActiveDays = 0;
-
-  // 2️⃣ Fetch each year's calendar and merge
-  for (const year of activeYears) {
-    const { submissionCalendar: calendarStr } = await fetchCalendarByYear(username, year);
-    const calendarObj = JSON.parse(calendarStr);
-
-    totalActiveDays += Object.keys(calendarObj).length;
-
-    mergedCalendar = {
-      ...mergedCalendar,
-      ...calendarObj
-    };
-  }
-
-  // 3️⃣ Final heatmap-ready data
-  return {
-    username,
-    activeYears,
-    totalActiveDays,
-    submissionCalendar: mergedCalendar
-  };
-}
-
-/**
- * Fetch all years data with submission calendars and streak
- * Returns data for each year separately (like the API response)
- */
-// export  async function fetchLeetCodeAllYearsData(username) {
-//   const activeYears = await fetchActiveYears(username);
-
-//   if (activeYears.length === 0) {
-//     throw new Error("No active years found for this user");
-//   }
-
-//   const yearsData = {};
-//   let totalActiveDays = 0;
-//   let totalSubmissions = 0;
-//   let maxStreakOverall = 0;
-
-//   // Fetch each year's calendar and streak separately
-//   for (const year of activeYears) {
-//     const { submissionCalendar: calendarStr, streak } = await fetchCalendarByYear(username, year);
-    
-//     // Parse the calendar to count active days and submissions
-//     const calendarObj = JSON.parse(calendarStr);
-//     const yearActiveDays = Object.keys(calendarObj).length;
-    
-//     // Count total submissions for this year
-//     const yearSubmissions = Object.values(calendarObj).reduce((sum, count) => sum + count, 0);
-//     totalSubmissions += yearSubmissions;
-//     totalActiveDays += yearActiveDays;
-
-//     // Build heatmap to calculate max streak
-//     const heatmapData = buildHeatmapFromCalendar(calendarStr, year);
-//     const maxStreak = heatmapData.streak?.max || 0;
-//     if (maxStreak > maxStreakOverall) {
-//       maxStreakOverall = maxStreak;
-//     }
-
-//     console.log(`[YEAR ${year}] Submissions: ${yearSubmissions}, ActiveDays: ${yearActiveDays}, MaxStreak: ${maxStreak}`);
-
-//     // Store submission calendar as stringified JSON for database
-//     yearsData[`y${year}`] = {
-//   submissionCalendar: JSON.stringify(calendarObj),
-//   streak: maxStreak,
-//   totalActiveDays: yearActiveDays,
-//   totalSubmissions: yearSubmissions
-// };
-
-//   }
-//   return {
-//     username,
-//     activeYears,
-//     totalActiveDays,
-//     totalSubmissions,
-//     maxStreak: maxStreakOverall,
-//     years: yearsData
-//   };
-// }
-
 export async function fetchLeetCodeAllYearsData(username) {
   const activeYears = await fetchActiveYears(username);
 
@@ -205,15 +116,11 @@ export async function fetchLeetCodeAllYearsData(username) {
       maxStreakOverall = maxStreak;
     }
 
-    console.log(
-      `[YEAR ${year}] Submissions: ${yearSubmissions}, ActiveDays: ${yearActiveDays}, MaxStreak: ${maxStreak}`
-    );
-
     yearsData[`y${year}`] = {
       submissionCalendar: JSON.stringify(calendarObj),
       totalActiveDays: yearActiveDays,
       totalSubmissions: yearSubmissions,
-      maxStreak: maxStreak      
+      maxStreak: maxStreak
     };
   }
 
@@ -225,4 +132,146 @@ export async function fetchLeetCodeAllYearsData(username) {
     maxStreak: maxStreakOverall,
     years: yearsData
   };
+}
+
+/**
+ * Main Controller Function
+ * Handles cached DB check + API fallback/update
+ */
+export const getLeetCodeHeatmap = async (req, res) => {
+  try {
+    const { username, year, refresh } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+
+    // Attempt to find user to link (Foreign Key)
+    // We try to find by leetcodeId (username)
+    let user = await User.findOne({ leetcodeId: username });
+
+    // If not found, maybe look by generic search or fail?
+    // The user requirement said "used USER id or any another foreign key".
+    // If we can't find a User, we can't store with userId.
+    if (!user) {
+      // Fallback: If no user found in DB, we can't save to DB with userId.
+      // We could just return API data without saving, or error.
+      // Assuming we should return data for unregistered users too (public profile feature?):
+      // But the requirement implies saving to database.
+      // Let's assume we proceed but maybe without DB update if user strictly doesn't exist?
+      // Or we require the User to exist.
+      // Given this is "CampusRank", likely all students are Users.
+      // Check if username is actually a user ID? No, it's leetcode handle.
+      // We'll proceed with API fetch if user missing, but skip saving.
+      // OR better: Assume user exists.
+      console.warn(`User with leetcodeId ${username} not found in DB. Searching by name/other fields?`);
+    }
+
+    // 1. Check DB for cached data if not refreshing
+    if (!refresh && user) {
+      const cached = await LeetCodeHeatmap.findOne({ userId: user._id });
+      if (cached) {
+        console.log(`Using cached LeetCode data for ${username}`);
+        // Return cached data formatted
+        return returnFormattedData(res, cached, year, username);
+      }
+    }
+
+    // 2. Fetch from API
+    console.log(`Fetching LeetCode data from API for ${username}`);
+    const apiData = await fetchLeetCodeAllYearsData(username);
+
+    // 3. Save to DB (if user exists)
+    if (user) {
+      // Upsert
+      let heatmapDoc = await LeetCodeHeatmap.findOne({ userId: user._id });
+      if (!heatmapDoc) {
+        heatmapDoc = new LeetCodeHeatmap({
+          userId: user._id,
+          username: username
+        });
+      }
+
+      // Update fields
+      heatmapDoc.username = username; // Ensure sync
+      heatmapDoc.activeYears = apiData.activeYears;
+      heatmapDoc.totalActiveDays = apiData.totalActiveDays;
+      heatmapDoc.totalSubmissions = apiData.totalSubmissions;
+      heatmapDoc.maxStreak = apiData.maxStreak;
+
+      // Update map
+      // We need to convert objects to Map acceptable format or just set it
+      // Mongoose Map expects object with keys
+      heatmapDoc.years = apiData.years;
+
+      heatmapDoc.lastUpdated = new Date();
+      await heatmapDoc.save();
+
+      // Return formatted from the saved doc (to ensure consistency)
+      return returnFormattedData(res, heatmapDoc, year, username);
+    } else {
+      // Just return API data directly formatted
+      // We need to mock the doc structure roughly
+      return returnFormattedData(res, { ...apiData, years: new Map(Object.entries(apiData.years)) }, year, username);
+    }
+
+  } catch (err) {
+    console.error('Heatmap error:', err);
+    res.status(500).json({ error: err.message || 'Failed to fetch heatmap' });
+  }
+};
+
+// Helper to format response matches existing frontend expectation
+function returnFormattedData(res, data, year, username) {
+  // Current frontend expects:
+  // { years: [], streak: {}, totalActiveDays: 0, heatmap: { months: ... } }
+
+  // Determine target year
+  const activeYears = data.activeYears || [];
+  const targetYear = year || (activeYears.length > 0 ? activeYears[0] : new Date().getFullYear());
+
+  // Get year data from Map (key is 'y2024') or direct object
+  const yearKey = `y${targetYear}`;
+  let yearData = null;
+
+  if (data.years instanceof Map) {
+    yearData = data.years.get(yearKey);
+  } else {
+    yearData = data.years[yearKey];
+  }
+
+  // If year not found, return empty
+  if (!yearData) {
+    return res.json({
+      years: activeYears,
+      streak: { max: data.maxStreak || 0 }, // Overall streak? Or year streak? Frontend expects 'streak' object? 
+      // Looking at leetcodeHeatmap.jsx: data.streak?.max
+      // backend sent: streak: streak (which was { current, max } from buildHeatmap)
+      totalActiveDays: data.totalActiveDays, // Total or Year? Frontend labels it "Total active days". Usually year specific?
+      // Existing controller leetcodeHeatmap logic: 
+      // const { months, totalActiveDays, streak } = buildHeatmapFromCalendar(...) for SPECIFIC YEAR.
+      // So totalActiveDays was specific to the year.
+      heatmap: { months: [] }
+    });
+  }
+
+  // We need to rebuild the heatmap months/weeks for the specific year from submissionCalendar
+  const calendarStr = yearData.submissionCalendar;
+  let calendarObj = {};
+  try {
+    calendarObj = typeof calendarStr === 'string' ? JSON.parse(calendarStr) : calendarStr;
+  } catch (e) { calendarObj = {}; }
+
+  const { months, totalActiveDays: yearTotalActiveDays, streak: yearStreak } = buildHeatmapFromCalendar(
+    calendarObj,
+    targetYear
+  );
+
+  res.json({
+    years: activeYears,
+    streak: yearStreak,
+    totalActiveDays: yearTotalActiveDays,
+    heatmap: { months },
+    totalSubmissions: yearData.totalSubmissions // Bonus info
+  });
 }

@@ -5,9 +5,9 @@ import { fetchGFGStats } from '../services/gfgcodeService.js';
 import { fetchGitHubStats } from '../services/githubcodeService.js';
 import { defaultDisplaySettings } from './adminController.js';
 import buildHeatmapFromCalendar from '../utils/heatmap.js';
-import fetchLeetCodeCalendars from '../controllers/leetcodeHeatmap.js';
-import fetchLeetCodeHeatmap, { fetchLeetCodeAllYearsData } from '../controllers/leetcodeHeatmap.js';
+import { fetchLeetCodeAllYearsData } from '../controllers/leetcodeHeatmap.js';
 import fetch from "node-fetch";
+import LeetCodeHeatmap from '../models/LeetCodeHeatmap.js';
 
 
 
@@ -263,86 +263,7 @@ export const getBanner = async (req, res) => {
   }
 };
 
-export const leetcodeHeatmap = async (req, res) => {
-  try {
-    const { username, year } = req.body;
 
-    if (!username) {
-      return res.status(400).json({ error: 'Username is required' });
-    }
-
-    const data = await fetchLeetCodeCalendars(username);
-
-    // Use the provided year or the first active year or current year
-    const targetYear = year || (data.activeYears && data.activeYears[0]) || new Date().getUTCFullYear();
-
-    const { months, totalActiveDays, streak } = buildHeatmapFromCalendar(
-      data.submissionCalendar,
-      targetYear
-    );
-
-    res.json({
-      years: data.activeYears || [targetYear],
-      streak: streak,
-      totalActiveDays: totalActiveDays,
-      heatmap: { months }
-    });
-  } catch (err) {
-    console.error('Heatmap error:', err);
-    res.status(500).json({ error: err.message || 'Failed to fetch heatmap' });
-  }
-};
-
-
-export async function getLeetcodeHeatmap(req, res) {
-  try {
-    const { username, year } = req.body;
-
-    if (!username) {
-      return res.status(400).json({ error: "Username is required" });
-    }
-
-    // 1️⃣ Check DB
-    let cached = await LeetcodeHeatmap.findOne({ username });
-
-    // 2️⃣ Fetch + save if not cached
-    if (!cached) {
-      const raw = await fetchLeetCodeHeatmap(username);
-
-      cached = await LeetcodeHeatmap.create({
-        username: raw.username,
-        activeYears: raw.activeYears,
-        totalActiveDays: raw.totalActiveDays,
-        submissionCalendar: raw.submissionCalendar
-      });
-    }
-
-    // 3️⃣ Only years (first call)
-    if (!year) {
-      return res.json({
-        years: cached.activeYears
-      });
-    }
-
-    // 4️⃣ Build heatmap for specific year
-    const heatmap = buildHeatmapFromCalendar(
-      cached.submissionCalendar,
-      year
-    );
-
-    res.status(200).json({
-      success: true,
-      year: Number(year),
-      activeYears: cached.activeYears,
-      totalActiveDays: cached.totalActiveDays,
-      totalSubmissions: cached.totalSubmissions || 0,
-      heatmap
-    });
-  } catch (err) {
-    console.error("Leetcode controller error:", err);
-    res.status(500).json({ error: "Heatmap failed" });
-  }
-}
 
 // @desc    Save LeetCode heatmap data to user profile
 // @route   POST /api/users/save-heatmap
@@ -370,35 +291,21 @@ export const saveLeetcodeHeatmapToUser = async (req, res) => {
     const heatmapData = await fetchLeetCodeAllYearsData(leetcodeUsername);
 
     console.log('=== SAVING HEATMAP ===');
-    console.log('Fetched data:', {
-      totalSubmissions: heatmapData.totalSubmissions,
-      maxStreak: heatmapData.maxStreak,
-      activeYears: heatmapData.activeYears,
-      yearsCount: Object.keys(heatmapData.years || {}).length
-    });
 
-    // Initialize structure
-    if (!user.leetcodeHeatmap) {
-      user.leetcodeHeatmap = {
-        activeYears: [],
-        years: new Map(),
-        totalActiveDays: 0,
-        totalSubmissions: 0,
-        maxStreak: 0
-      };
+    // Find or create LeetCodeHeatmap
+    let heatmapDoc = await LeetCodeHeatmap.findOne({ userId });
+    if (!heatmapDoc) {
+      heatmapDoc = new LeetCodeHeatmap({ userId, username: leetcodeUsername });
+    } else {
+      heatmapDoc.username = leetcodeUsername;
     }
 
-    // RESET map safely
-    user.leetcodeHeatmap.years = new Map();
-
-    // ✅ SAFE MAP INSERT
+    // Prepare years map
+    const yearsMap = new Map();
     for (const [yearKey, yearValue] of Object.entries(heatmapData.years || {})) {
-      if (!yearValue || !yearValue.submissionCalendar) {
-        console.warn(`⚠️ Skipping ${yearKey} due to missing data`);
-        continue;
-      }
+      if (!yearValue || !yearValue.submissionCalendar) continue;
 
-      user.leetcodeHeatmap.years.set(yearKey, {
+      yearsMap.set(yearKey, {
         submissionCalendar: String(yearValue.submissionCalendar),
         totalActiveDays: yearValue.totalActiveDays || 0,
         totalSubmissions: yearValue.totalSubmissions || 0,
@@ -406,20 +313,22 @@ export const saveLeetcodeHeatmapToUser = async (req, res) => {
       });
     }
 
-    user.leetcodeHeatmap.activeYears = heatmapData.activeYears || [];
-    user.leetcodeHeatmap.totalActiveDays = heatmapData.totalActiveDays || 0;
-    user.leetcodeHeatmap.totalSubmissions = heatmapData.totalSubmissions || 0;
-    user.leetcodeHeatmap.maxStreak = heatmapData.maxStreak || 0;
-    user.leetcodeHeatmap.lastUpdated = new Date();
+    heatmapDoc.years = yearsMap;
+    heatmapDoc.activeYears = heatmapData.activeYears || [];
+    heatmapDoc.totalActiveDays = heatmapData.totalActiveDays || 0;
+    heatmapDoc.totalSubmissions = heatmapData.totalSubmissions || 0;
+    heatmapDoc.maxStreak = heatmapData.maxStreak || 0;
+    heatmapDoc.lastUpdated = new Date();
 
+    await heatmapDoc.save();
+
+    // Still update user's leetcodeId if needed
     if (!user.leetcodeId) {
       user.leetcodeId = leetcodeUsername;
+      await user.save();
     }
 
-    user.markModified('leetcodeHeatmap');
-    await user.save();
-
-    console.log('=== HEATMAP SAVED SUCCESSFULLY ===');
+    console.log('=== HEATMAP SAVED SAFELY TO SEPARATE SCHEMA ===');
 
     return res.status(200).json({
       success: true,
@@ -449,16 +358,8 @@ export const getUserLeetcodeHeatmap = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId).lean();
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    const heatmap = user.leetcodeHeatmap;
+    // We don't necessarily need to fetch User, but finding cached heatmap is enough
+    const heatmap = await LeetCodeHeatmap.findOne({ userId }).lean();
 
     if (!heatmap || !heatmap.years || Object.keys(heatmap.years).length === 0) {
       return res.status(200).json({
